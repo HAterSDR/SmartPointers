@@ -520,11 +520,9 @@ int main()
 
 通俗来讲，`weak_ptr`就是`shared_ptr`的一个弱化版本或是补丁。它持有一个非拥有（“弱”）引用，指向由`shared_ptr`管理的对象，起到观察者的作用，一方面观察有多少`shared_ptr`指向被管理的对象，一方面管理**控制块**的生命周期（而不管理对象本身的生命周期，即不会使得`shared_cnt`发生变化）。对`weak_ptr`的引用计数称为**弱引用计数**`weak_cnt`，它与`shared_cnt`被同时维护，且两者的计数方式是**相互独立**的。
 
->  如果你看过去年的阅读材料文档，会发现有这样一句话：当`shared_cnt`减为0时，`weak_cnt`-1。但这条规则实际上是错误的。`weak_cnt`和`shared_cnt`之间不会有任何相互影响，因为它们管理的东西是完全不同的。
-
 为了同时维护两个数值，并实现强引用计数对对象的管理和弱引用计数对控制块的管理，往往将两个计数器和被管理的对象用一个控制块（Control Block）进行统一维护。
 
-由于`weak_ptr`本身不能创建新的对象（前文已经提到，它指向由`shared_ptr`管理的对象），所以Control Block的创建只能由`shared_ptr`创建。因此，在一个Control Block被新建时，两个计数器的初始化值一定是`shared_cnt = 1`（代表创建它的`shared_ptr`），`weak_cnt = 0`（当前没有任何观测者）。
+由于 `weak_ptr` 本身不能创建新的对象（前文已经提到，它指向由 `shared_ptr` 管理的对象），所以Control Block的创建只能由 `shared_ptr` 创建。因此，在一个Control Block被新建时，两个计数器的初始化值一定是`shared_cnt = 1`（代表创建它的`shared_ptr`），`weak_cnt = 1`（当前没有任何观测者，但 `shared_ptr` 依然没有消亡。等到对象消亡时，即 `shared_ptr == 0` 时，再触发一次 `--weak_cnt`，保证它不会先于 `shared_cnt` 变为 `0`）。
 
 Control Block被析构的时间节点为`shared_cnt == 0 && weak_cnt == 0`，代表控制块中被管理的对象内存已经被释放，同时没有任何`weak_ptr`在观测这块资源的使用情况。当仅有`shared_cnt`归零时，尽管对象已经被`delete`了，但仍可能有`weak_ptr`在观测它，程序可能需要通过这些`weak_ptr`（的`expired`方法）来确认这块内存是否被释放，因此Control Block不能被立即析构。
 
@@ -551,15 +549,15 @@ int main()
 
 详细步骤如下：
 
-- 在这一过程后，`node1`的`shared_cnt = 1`，`weak_cnt = 1`，`node2`的`shared_cnt = 2`，`weak_cnt = 0`；
+- 在这一过程后，`node1`的`shared_cnt = 1`，`weak_cnt = 2`，`node2`的`shared_cnt = 2`，`weak_cnt = 1`；
 
 - 根据栈的规则，先触发`node2`（智能指针对象）的析构函数，使得它的`shared_cnt`减一，变成1；
 
 - 再触发`node1`（智能指针对象）的析构函数，`node1`的`shared_cnt`减一；
 
-- `node1`的`shared_cnt`此时归零，触发`Node`（结构体）的析构函数，`node1`所管理的`data`内存被释放，同时`node1->next`指向的`node2`的`shared_cnt`减一；
+- `node1`的`shared_cnt`此时归零，触发`Node`（结构体）的析构函数，`node1`所管理的`data`内存被释放，自身的 `weak_cnt` 减一，同时`node1->next`指向的`node2`的`shared_cnt`减一；
 
-- `node2`的`shared_cnt`此时归零，触发`Node`（结构体）的析构函数，`node2`所管理的`data`内存被释放，同时`node2->prev`指向的`node1`的`weak_cnt`减一。`node2`的`shared_cnt`和`weak_cnt`都是0也触发了`node2`的Control Block析构；
+- `node2`的`shared_cnt`此时归零，触发`Node`（结构体）的析构函数，`node2`所管理的`data`内存被释放，自身的 `weak_cnt` 减一，同时`node2->prev`指向的`node1`的`weak_cnt`减一。`node2`的`shared_cnt`和`weak_cnt`都是0也触发了`node2`的Control Block析构；
 
 - `node1`的`shared_cnt`和`weak_cnt`都归零，触发`node1`的Control Block析构。
 

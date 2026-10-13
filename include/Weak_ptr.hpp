@@ -30,13 +30,11 @@ class WeakPtr {
     void reset();        // Reset to empty state
 
     // Utility functions
-    void swap(WeakPtr& other) noexcept; // Swap with another WeakPtr
+    void swap(WeakPtr& other); // Swap with another WeakPtr
 };
 
 // Non-member swap function
 template <typename T>
-void swap(WeakPtr<T>& lhs, WeakPtr<T>& rhs) noexcept {
-    lhs.swap(rhs);
-}
+void swap(WeakPtr<T>& lhs, WeakPtr<T>& rhs);
 
 #endif // WEAK_PTR

@@ -2,6 +2,8 @@
 
 > SJTU CS1958-01 2026Fall 第二次大作业
 
+**前排提醒：本作业禁止使用 `<memory>` 库！**
+
 开始项目前，建议先阅读[智能指针：从入门到入土](./Intro.md)
 
 本项目要实现的内容是一个类模板，可能有类似于`template <typename T>`的语句，你可以在理解的时候将`T`视作某一种特殊的类型名称（或者视为`int`）。根据这一规则，被包装的原始指针的类型就是`T*`。
@@ -16,13 +18,13 @@
   UniquePtr<int> ptr;
   ```
 
-- 能够支持将普通指针转换成`unique_ptr`的构造函数：
+- 能够支持将普通指针**显式**转换成`unique_ptr`的构造函数：
   
   ```cpp
   UniquePtr<int> ptr{new int{10}};
   ```
 
-- `unique_ptr`间的移动构造函数，并禁止拷贝构造函数的存在：
+- `unique_ptr`间的移动构造函数，并禁止拷贝构造函数的存在，注意所有的移动构造/移动赋值函数都需要有 `noexcept` 声明 (why?)，后续所有实现中这句话也生效：
   
   ```cpp
   UniquePtr<int> ptr2{ptr1};  // compile error!
@@ -52,7 +54,7 @@
    std::cout << ptr.get() << std::endl;  // output: raw pointer stored in the class
   ```
 
-- 重载类型转换符 `bool()` 来判断指针是否为空，非空返回 true，空返回 false：
+- 重载类型转换符 `bool()` 来判断指针是否为空，非空返回 true，空返回 false，注意这种判断不应支持隐式的转换：
   
   ```cpp
    UniquePtr<std::string> ptr{new std::string{"hello"}};
@@ -82,6 +84,10 @@
   UniquePtr<std::string> ptr{new std::string{"hello"}};
   ptr.reset(new std::string{"nice"});
   std::cout << *ptr << std::endl;  // output: nice
+  
+  // NOTE: It should also support:
+  UniquePtr<int> p(new int(5));
+  p.reset(p.get()); // with NO operation (which is defined in C++23)
   ```
 
 - 实现`release`函数，让对象脱离`unique_ptr`的管理，并返回一个指向原对象的普通指针（交给使用者进行内存管理）。在此期间，`unique_ptr`类不删除原有指针。
@@ -95,6 +101,10 @@
 
 ## `Shared_ptr`
 
+**在提交 `Shared_ptr.hpp` 时，一定要将你自己写的 `Class UniquePtr` 具体实现附在代码前面！！！**
+
+> 在 `Shared_ptr` 及 `Weak_ptr` 的模板中，部分关键字（例如 `const`、`explicit`、`noexcept`）都已经被省略。请根据 `Unique_ptr` 的经验以及对函数效果的理解，自行补充这些关键字。
+
 `shared_ptr` 中的要求包括：
 
 - 默认构造函数，内部指针默认应当为`nullptr`：
@@ -103,7 +113,7 @@
   SharedPtr<int> ptr;
   ```
 
-- 实现能够支持将普通指针和 `unique_ptr` 转换成 `shared_ptr` 的构造函数：
+- 实现能够支持将普通指针**显式**转换成 `shared_ptr` 的构造函数和将无论是**左值**还是**右值**的 `unique_ptr` 转换成 `shared_ptr` 的构造函数：
   
   ```cpp
   UniquePtr<int> ptr{new int{1}};
@@ -111,7 +121,7 @@
   SharedPtr<int> sp2{ptr};
   ```
 
-- 实现 `shared_ptr` 间的移动构造函数与拷贝构造函数
+- 实现 `shared_ptr` 间的移动构造函数与拷贝构造函数：
   
   ```cpp
   SharedPtr<int> ptr2{ptr1};  // compile success
@@ -123,7 +133,7 @@
    SharedPtr<int> ptr{make_shared<int>(10)};
   ```
 
-- 析构函数 `~SharedPtr()` 删除动态指针并将其置为 `nullptr`
+- 析构函数 `~SharedPtr()` 删除动态指针并将其置为 `nullptr`；
 
 - 实现 `use_count()` 函数用以返回指向当前的对象的所有 `shared_ptr` 实例数：
   
@@ -180,9 +190,15 @@
    SharedPtr<std::string> ptr{new std::string{"hello"}};
    ptr.reset(new std::string{"nice"});
    std::cout << *ptr << std::endl;  // output: nice
+  
+   // NOTE: It should also support:
+  SharedPtr<int> p(new int(5));
+  p.reset(p.get()); // with NO operation (which is defined in C++23)
   ```
 
 ## `Weak_ptr`
+
+**在提交 `Weak_ptr.hpp` 时，一定要将你自己写的`Class UniquePtr` 和 `Class SharedPtr` 具体实现附在代码前面！！！**
 
 为此，你需要构造的 `weak_ptr` 模版类的要求包括：
 
@@ -199,7 +215,7 @@
   WeakPtr<int> wp{sp};
   ```
 
-- 移动构造函数与拷贝构造函数，注意在拷贝构造中可以通过 `shared_ptr` 构造 `weak_ptr`
+- 移动构造函数与拷贝构造函数，注意在拷贝构造中可以通过 `shared_ptr` 构造 `weak_ptr`，自赋值/自移动必须安全，被移动构造和移动赋值的源对象都应当 `expired()` ，`expired()` 的要求详见下文：
   
   ```cpp
   WeakPtr<int> wp1{sp};
@@ -231,7 +247,7 @@
 
 - 实现 `use_count()` 函数，用以返回指向当前的对象的所有 `shared_ptr` 实例数
 
-- 实现`lock()`函数用以转换`weak_ptr`为`shared_ptr`，注意这会产生一个新的`shared_ptr`，引发计数器变化。如果对象已被删除，则返回一个空的 `shared_ptr`：
+- 实现`lock()`函数用以转换`weak_ptr`为`shared_ptr`，注意这会产生一个**新的** `shared_ptr`，引发计数器变化。如果对象已被删除，则返回一个空的 `shared_ptr`：
   
   ```cpp
    WeakPtr<int> wp{sp};
@@ -241,7 +257,7 @@
    }
   ```
 
-- 实现 `expired()` 函数用以检查 `weak_ptr` 所指向的对象是否已被删除，返回 `true` 表示被删除，返回 `false`表示没有被删除：
+- 实现 `expired()` 函数用以检查 `weak_ptr` 所指向的**对象**是否已被删除，返回 `true` 表示被删除，返回 `false`表示没有被删除：
   
   ```cpp
    WeakPtr<int> wp{sp};
@@ -258,7 +274,7 @@
   wp.reset();  // wp no longer references anything
   ```
 
-- 实现 `swap()` 函数，交换两个 `weak_ptr` 对象：
+- 实现 `swap()` 函数，$O(1)$ 交换两个 `weak_ptr` 对象而不修改对象资源：
   
   ```cpp
   WeakPtr<int> wp1{sp1}, wp2{sp2};
@@ -269,7 +285,8 @@
 
 1. 请事先阅读下发的材料，里面包含了绝大多数本次大作业当中需要用到的知识点，以及对三种智能指针功能的简要介绍，能够对本次大作业的背景有一个初步的了解；
 2. 开始写代码前一定要先进行程序设计，思考应当以什么结构框架实现各种功能，以避免不必要的代码堆砌或整体重构 （尤其是`shared_ptr`与`weak_ptr`）
-3. 注意函数实现中的细节，譬如 `const`、`noexpect`、`explicit`等（这些请自行查询资料了解），有时需要将这些关键词添加到适当函数处使智能指针可以正常运行，并且注意这些都有可能成为`Code Review` 中考察的对象。
+3. 所有的自赋值和自移动赋值必须保证安全。
+4. 注意函数实现中的细节，譬如 `const`、`noexpect`、`explicit`等（这些请自行查询资料了解），有时需要将这些关键词添加到适当函数处使智能指针可以正常运行，并且注意这些**将会被涵盖在OJ上的测试当中（若有细节错误会扣部分分）**，也都有可能成为`Code Review` 中考察的对象。
 
 ## Bonus
 

@@ -1,6 +1,7 @@
 #ifndef UNIQUE_PTR
 #define UNIQUE_PTR
-#include <iostream>
+
+#include <utility>
 
 template <typename T>
 
@@ -31,8 +32,6 @@ class UniquePtr {
     T* release();                   // Release ownership of the managed object
 };
 
-// A tricky question: to implement the make_unique function
-// template <?>
-//? make_unique(?);
+// make_unique function
 
 #endif // UNIQUE_PTR

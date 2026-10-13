@@ -1,6 +1,9 @@
 #ifndef SHARED_PTR
 #define SHARED_PTR
 
+#include "Unique_ptr.hpp" // Include UniquePtr definition
+// When submitting to ACMOJ, please replace this with the content inside Unique_ptr.hpp
+
 template <typename T>
 class SharedPtr {
   private:
@@ -8,23 +11,24 @@ class SharedPtr {
   public:
     // Constructors
     SharedPtr();                         // Default constructor
-    explicit SharedPtr(T* p);            // Constructor from raw pointer
+    SharedPtr(T* p);                     // Constructor from raw pointer
     SharedPtr(const SharedPtr& tmp);     // Copy constructor
-    SharedPtr(SharedPtr&& tmp) noexcept; // Move constructor
+    SharedPtr(SharedPtr&& tmp);          // Move constructor
+    // How about constructor from WeakPtr?
 
     // Destructor
     ~SharedPtr();
 
     // Assignment operators
     SharedPtr& operator=(const SharedPtr& temp);     // Copy assignment operator
-    SharedPtr& operator=(SharedPtr&& temp) noexcept; // Move assignment operator
+    SharedPtr& operator=(SharedPtr&& temp); // Move assignment operator
 
     // Basic operations
-    int use_count() const; // Get the number of shared owners
-    T* get() const;        // Get the raw pointer
-    operator bool() const; // Check if the pointer is not null
-    T& operator*() const;  // Dereference operator
-    T* operator->() const; // Arrow operator
+    int use_count();       // Get the number of shared owners
+    T* get();              // Get the raw pointer
+    operator bool();       // Check if the pointer is not null
+    T& operator*();        // Dereference operator
+    T* operator->();       // Arrow operator
     void reset();          // Reset to empty state
     void reset(T* p);      // Reset with a new raw pointer
 };
