@@ -276,7 +276,7 @@
   wp.reset();  // wp no longer references anything
   ```
 
-- 实现 `swap()` 函数，$O(1)$ 交换两个 `weak_ptr` 对象而不修改对象资源：
+- 实现 `swap()` 函数，交换两个 `weak_ptr` 对象而不修改对象资源：
   
   ```cpp
   WeakPtr<int> wp1{sp1}, wp2{sp2};
