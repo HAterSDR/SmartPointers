@@ -369,13 +369,13 @@
 
 - `Unique_ptr` $20$ 分；
 
-- `Shared_ptr` $35$ 分；
+- `Shared_ptr` $30$ 分；
 
 - `Weak_ptr` $30$ 分；
 
 - Code Review $20$分。
 
-满分 $100$ 分，超过 $100$ 分的也以 $100$ 分计。
+
 
 ## Acknowledgement
 
