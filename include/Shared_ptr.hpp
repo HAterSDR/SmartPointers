@@ -3,21 +3,59 @@
 
 #include "Unique_ptr.hpp" // Include UniquePtr definition
 // When submitting to ACMOJ, please replace this with the content inside Unique_ptr.hpp
-
+template <typename T>
+struct ControlBlock{
+  T* ptr = nullptr;
+  int shared_cnt = 1;
+  int weak_cnt = 0;
+  void release_shared(){
+    shared_cnt--;
+    if(shared_cnt == 0){
+      delete ptr;
+      ptr = nullptr;
+      release_weak();
+    }
+  }
+  void release_weak(){
+    //to do
+  }
+};
 template <typename T>
 class SharedPtr {
   private:
+  T* ptr = nullptr;
+  ControlBlock<T>* cb_ = nullptr;
     // Add whatever you want to add.
   public:
     // Constructors
-    SharedPtr();                         // Default constructor
-    SharedPtr(T* p);                     // Constructor from raw pointer
-    SharedPtr(const SharedPtr& tmp);     // Copy constructor
-    SharedPtr(SharedPtr&& tmp);          // Move constructor
+    SharedPtr(){
+      cb_{new ControlBlock<T>()};
+    };                         // Default constructor
+    explicit SharedPtr(T* p){
+      if(p != nullptr) {
+        cb_{new ControlBlock<T>()};
+        cb_->ptr = p;
+      }
+      ptr = p;
+    };                     // Constructor from raw pointer
+    SharedPtr(const SharedPtr& tmp){
+      ptr = tmp.ptr;
+      cb_ = tmp.cb_;
+      cb_->shared_cnt++;
+    };     // Copy constructor
+    SharedPtr(SharedPtr&& tmp) noexcept{
+      ptr = tmp.ptr;
+      tmp.ptr = nullptr;
+      cb_ = tmp.cb_;
+      tmp.cb_ = nullptr;
+    };          // Move constructor
     // How about constructor from WeakPtr?
 
     // Destructor
-    ~SharedPtr();
+    ~SharedPtr(){
+      cb_->release_shared();
+      cb_ = nullptr;
+    };
 
     // Assignment operators
     SharedPtr& operator=(const SharedPtr& temp);     // Copy assignment operator
